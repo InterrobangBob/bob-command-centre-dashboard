@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Command Centre</title>
+<meta name="description" content="Every Claude job across Bob's machines and the cloud, with the ones waiting on him in one column.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <h1>Command Centre</h1>
+  <div class="top-controls">
+    <span id="refreshed" class="muted" aria-live="polite">not loaded</span>
+    <button id="refreshBtn" type="button" title="Refresh now">Refresh</button>
+    <button id="viewBtn" type="button" title="Switch between active and archived jobs">Archive</button>
+    <button id="settingsBtn" type="button" title="Token and repository settings">Settings</button>
+  </div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<section id="settings" class="panel" hidden>
+  <h2>Settings</h2>
+  <p>The token is kept in this browser only and is sent to api.github.com and nowhere else. Make a fine-grained token with Contents read and write on the one repository.</p>
+  <form id="settingsForm">
+    <label>GitHub user or organisation <input id="owner" name="owner" type="text" autocomplete="off" required></label>
+    <label>Repository <input id="repo" name="repo" type="text" autocomplete="off" value="bob-command-centre" required></label>
+    <label>Branch <input id="branch" name="branch" type="text" autocomplete="off" value="main" required></label>
+    <label>Fine-grained token <input id="token" name="token" type="password" autocomplete="off" required></label>
+    <div class="row">
+      <button type="submit">Save and load</button>
+      <button type="button" id="forgetBtn" class="secondary">Forget token on this device</button>
+    </div>
+  </form>
+</section>
+
+<main class="layout">
+  <section class="jobs" aria-labelledby="jobsHeading">
+    <div class="jobs-head">
+      <h2 id="jobsHeading">Jobs</h2>
+      <div class="filters">
+        <select id="machineFilter" aria-label="Filter by machine"><option value="">All machines</option></select>
+        <select id="surfaceFilter" aria-label="Filter by surface">
+          <option value="">All surfaces</option>
+          <option value="code">Claude Code</option>
+          <option value="cloud">Cloud</option>
+          <option value="chat">Chat</option>
+          <option value="cowork">Cowork</option>
+        </select>
+        <select id="statusFilter" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="running">Running</option>
+          <option value="waiting">Waiting</option>
+          <option value="finished">Finished</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+    </div>
+    <ul id="jobList" class="job-list"></ul>
+    <p id="jobsEmpty" class="muted" hidden>No jobs match.</p>
+  </section>
+
+  <aside class="waiting" aria-labelledby="waitingHeading">
+    <h2 id="waitingHeading">Waiting on Bob <span id="waitingCount" class="count">0</span></h2>
+    <div id="waitingList"></div>
+    <p id="waitingEmpty" class="muted" hidden>Nothing is waiting on you.</p>
+  </aside>
+</main>
+
+<template id="jobRowTpl">
+  <li class="job">
+    <button type="button" class="job-main" aria-expanded="false">
+      <span class="dot" data-status></span>
+      <span class="job-text">
+        <span class="job-title">Job</span>
+        <span class="job-meta"><span class="badge machine"></span> <span class="badge surface"></span> <span class="when"></span></span>
+        <span class="job-line"></span>
+      </span>
+    </button>
+    <div class="job-actions">
+      <a class="open" href="#" target="_blank" rel="noopener" hidden>Open</a>
+      <button type="button" class="archive secondary">Archive</button>
+    </div>
+    <div class="job-detail" hidden></div>
+  </li>
+</template>
+
+<template id="tileTpl">
+  <article class="tile">
+    <header>
+      <span class="badge machine"></span>
+      <span class="when"></span>
+    </header>
+    <h3 class="tile-title">Job</h3>
+    <p class="needs"></p>
+    <details>
+      <summary>What was tried</summary>
+      <ul class="tried"></ul>
+    </details>
+    <div class="approval" hidden>
+      <p class="approval-summary"></p>
+      <div class="row">
+        <button type="button" class="allow">Allow</button>
+        <button type="button" class="deny danger">Deny</button>
+      </div>
+    </div>
+    <div class="row tile-links">
+      <a class="open" href="#" target="_blank" rel="noopener" hidden>Open the session</a>
+      <span class="owner muted"></span>
+    </div>
+  </article>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>
