@@ -60,6 +60,12 @@
         </select>
       </div>
     </div>
+    <div class="bulk-bar">
+      <label class="bulk-all"><input type="checkbox" id="selectAll"> Select all</label>
+      <button type="button" id="selectFinished" class="secondary">Select finished</button>
+      <button type="button" id="bulkGo" disabled>Archive selected (0)</button>
+    </div>
+    <p id="bulkState" class="muted sync-state" aria-live="polite" hidden></p>
     <ul id="jobList" class="job-list"></ul>
     <p id="jobsEmpty" class="muted" hidden>No jobs match.</p>
   </section>
@@ -73,6 +79,7 @@
 
 <template id="jobRowTpl">
   <li class="job">
+    <input type="checkbox" class="pick" aria-label="Select job">
     <button type="button" class="job-main" aria-expanded="false">
       <span class="dot" data-status></span>
       <span class="job-text">

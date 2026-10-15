@@ -109,10 +109,15 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .filters select { min-height: 36px; padding: 4px 8px; }
 
 .job-list { list-style: none; margin: 0; padding: 0; }
-.job { border-top: 1px solid var(--line); padding: 8px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.job { border-top: 1px solid var(--line); padding: 8px 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: start; }
 .job-main {
   display: flex; gap: 10px; text-align: left; background: transparent; border: 0; padding: 4px 0; width: 100%; min-height: 0;
 }
+.job .pick, .bulk-all input { width: 22px; height: 22px; padding: 0; min-height: 0; }
+.job .pick { margin: 6px 0 0; }
+.bulk-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 8px; }
+.bulk-all { display: inline-flex; gap: 6px; align-items: center; }
+.bulk-bar button { min-height: 36px; padding: 4px 10px; }
 .job-text { display: flex; flex-direction: column; min-width: 0; }
 .job-title { font-weight: 600; overflow-wrap: anywhere; }
 .job-meta { font-size: 0.85rem; color: var(--muted); }

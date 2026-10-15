@@ -9,7 +9,7 @@
   var REFRESH_MS = 30000;
   var LS_KEY = 'command-centre-settings';
 
-  var state = { settings: null, jobs: [], archive: [], approvals: [], view: 'active', expanded: {}, busy: false, timer: null };
+  var state = { settings: null, jobs: [], archive: [], approvals: [], view: 'active', expanded: {}, selected: {}, bulking: false, busy: false, timer: null };
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -186,14 +186,70 @@
       .catch(function (err) { banner(err.message, true); btn.disabled = false; refresh(); });
   }
 
-  function moveJob(job, toArchive) {
+  function movePlain(job, toArchive) {
     var from = job._path;
     var to = toArchive ? 'jobs/archive/' + job.id + '.json' : 'jobs/' + job.id + '.json';
     return withRetry(function () {
       return currentSha(to).then(function (existingSha) { return putFile(to, serialise(job), existingSha, (toArchive ? 'archive ' : 'unarchive ') + job.id); })
         .then(function () { return currentSha(from); })
         .then(function (sha) { return sha ? deleteFile(from, sha, (toArchive ? 'archive ' : 'unarchive ') + job.id) : null; });
-    }).then(refresh).catch(function (err) { banner(err.message, true); });
+    });
+  }
+
+  function moveJob(job, toArchive) {
+    return movePlain(job, toArchive).then(refresh).catch(function (err) { banner(err.message, true); });
+  }
+
+  // ---- bulk archive / restore ---------------------------------------------
+  function shownJobs() {
+    var active = state.view === 'active';
+    var m = $('machineFilter').value, su = $('surfaceFilter').value, st = $('statusFilter').value;
+    return (active ? state.jobs : state.archive).filter(function (j) { return (!m || j.machine === m) && (!su || j.surface === su) && (!st || j.status === st); }).sort(sortJobs);
+  }
+  function selectedJobs() { return shownJobs().filter(function (j) { return state.selected[j.id]; }); }
+
+  function renderBulk() {
+    var active = state.view === 'active';
+    var shown = shownJobs();
+    var picked = shown.filter(function (j) { return state.selected[j.id]; });
+    var all = $('selectAll');
+    all.checked = shown.length > 0 && picked.length === shown.length;
+    all.indeterminate = picked.length > 0 && picked.length < shown.length;
+    all.disabled = state.bulking || shown.length === 0;
+    $('selectFinished').hidden = !active;
+    $('selectFinished').disabled = state.bulking;
+    var go = $('bulkGo');
+    go.textContent = (active ? 'Archive selected (' : 'Restore selected (') + picked.length + ')';
+    go.disabled = state.bulking || picked.length === 0;
+  }
+
+  function bulkMove() {
+    var active = state.view === 'active';
+    var picked = selectedJobs();
+    if (!picked.length || state.bulking) return Promise.resolve();
+    var waiting = picked.filter(function (j) { return j.status === 'waiting'; }).length;
+    if (active && waiting && !window.confirm(waiting + ' of the selected jobs are still waiting on you. Archive them anyway?')) return Promise.resolve();
+    state.bulking = true; renderBulk();
+    var done = 0, failed = [];
+    var note = $('bulkState'); note.hidden = false; note.className = 'muted sync-state';
+    // One at a time: two writes to the same branch at once make GitHub answer 409.
+    var chain = Promise.resolve();
+    picked.forEach(function (j) {
+      chain = chain.then(function () {
+        note.textContent = (active ? 'Archiving ' : 'Restoring ') + (done + failed.length + 1) + ' of ' + picked.length + '...';
+        return movePlain(j, active).then(function () { done++; delete state.selected[j.id]; }, function (err) { failed.push(j.title || j.id); note.dataset.err = err.message; });
+      });
+    });
+    return chain.then(function () {
+      state.bulking = false;
+      if (failed.length) {
+        note.className = 'muted sync-state error-text';
+        note.textContent = (active ? 'Archived ' : 'Restored ') + done + ', failed ' + failed.length + ' (' + failed.slice(0, 3).join(', ') + (failed.length > 3 ? ', ...' : '') + '): ' + (note.dataset.err || '');
+      } else {
+        note.textContent = (active ? 'Archived ' : 'Restored ') + done + (done === 1 ? ' job.' : ' jobs.');
+      }
+      return refresh();
+    });
   }
 
   // ---- rendering -----------------------------------------------------------
@@ -224,9 +280,10 @@
 
   function renderJobs(jobs, active) {
     var list = $('jobList'); list.innerHTML = '';
-    var m = $('machineFilter').value, su = $('surfaceFilter').value, st = $('statusFilter').value;
     var tpl = $('jobRowTpl');
-    var shown = jobs.filter(function (j) { return (!m || j.machine === m) && (!su || j.surface === su) && (!st || j.status === st); }).sort(sortJobs);
+    var shown = shownJobs();
+    var ids = {}; jobs.forEach(function (j) { ids[j.id] = true; });
+    Object.keys(state.selected).forEach(function (id) { if (!ids[id]) delete state.selected[id]; });
     $('jobsEmpty').hidden = shown.length > 0;
     shown.forEach(function (j) {
       var li = tpl.content.firstElementChild.cloneNode(true);
@@ -236,6 +293,11 @@
       li.querySelector('.badge.surface').textContent = j.surface || '?';
       li.querySelector('.when').textContent = (j.status || '') + ', ' + relTime(j.updated);
       li.querySelector('.job-line').textContent = j.last_line || '';
+      var pick = li.querySelector('.pick');
+      pick.checked = !!state.selected[j.id];
+      pick.disabled = state.bulking;
+      pick.setAttribute('aria-label', 'Select ' + (j.title || j.id));
+      pick.addEventListener('change', function () { if (pick.checked) state.selected[j.id] = true; else delete state.selected[j.id]; renderBulk(); });
       var open = li.querySelector('.open');
       if (isUrl(j.owner_session)) { open.hidden = false; open.href = j.owner_session; }
       var arch = li.querySelector('.archive');
@@ -261,6 +323,7 @@
       });
       list.appendChild(li);
     });
+    renderBulk();
   }
 
   function renderWaiting() {
@@ -350,6 +413,17 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   $('refreshBtn').addEventListener('click', refresh);
   $('syncBtn').addEventListener('click', syncNow);
+  $('selectAll').addEventListener('change', function () {
+    var on = $('selectAll').checked;
+    shownJobs().forEach(function (j) { if (on) state.selected[j.id] = true; else delete state.selected[j.id]; });
+    render();
+  });
+  $('selectFinished').addEventListener('click', function () {
+    state.selected = {};
+    shownJobs().forEach(function (j) { if (j.status === 'finished') state.selected[j.id] = true; });
+    render();
+  });
+  $('bulkGo').addEventListener('click', bulkMove);
   $('viewBtn').addEventListener('click', function () { state.view = state.view === 'active' ? 'archive' : 'active'; render(); });
   $('settingsBtn').addEventListener('click', function () { showSettings($('settings').hidden); });
   $('forgetBtn').addEventListener('click', forgetSettings);
