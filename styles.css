@@ -148,3 +148,6 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .tile .approval-summary { font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; overflow-wrap: anywhere; margin: 0 0 8px; }
 .tile .allow, .tile .deny { flex: 1; min-height: 44px; }
 .tile-links { margin-top: 8px; font-size: 0.85rem; overflow-wrap: anywhere; }
+
+.sync-state { margin: 6px 16px; }
+.sync-state.error-text { color: var(--failed); }

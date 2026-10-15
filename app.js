@@ -303,6 +303,45 @@
     });
   }
 
+  // ---- sync now ------------------------------------------------------------
+  // The cloud sessions can only be read by a Claude session that has the Remote Control tools, so the button leaves a
+  // request in the repo (requests/sync-now.json) and waits for that session to answer in requests/sync-done.json.
+  var SYNC_POLL_MS = (typeof window !== 'undefined' && window.CC_SYNC_POLL_MS) || 15000;
+  var SYNC_GIVE_UP_MS = (typeof window !== 'undefined' && window.CC_SYNC_GIVE_UP_MS) || 12 * 60 * 1000;
+  function syncState(msg, isErr) {
+    var p = $('syncState');
+    p.hidden = !msg; p.textContent = msg || ''; p.className = 'muted sync-state' + (isErr ? ' error-text' : '');
+  }
+  function syncDone() { state.syncing = false; $('syncBtn').disabled = false; }
+  function syncNow() {
+    if (!state.settings || !state.settings.token) { showSettings(true); return; }
+    if (state.syncing) return;
+    state.syncing = true; $('syncBtn').disabled = true;
+    var asked = new Date().toISOString();
+    syncState('Asking Claude to sync...');
+    withRetry(function () {
+      return currentSha('requests/sync-now.json').then(function (sha) {
+        return putFile('requests/sync-now.json', JSON.stringify({ requested_at: asked, by: 'dashboard' }, null, 2) + '\n', sha, 'sync now ' + asked);
+      });
+    }).then(function () {
+      var start = Date.now();
+      syncState('Requested. Claude picks it up within about 5 minutes. You can leave this page open.');
+      (function poll() {
+        if (Date.now() - start > SYNC_GIVE_UP_MS) {
+          syncState('No answer after ' + Math.round(SYNC_GIVE_UP_MS / 60000) + ' minutes. The Claude session that does the sync may not be running.', true);
+          syncDone(); return;
+        }
+        currentFile('requests/sync-done.json').then(function (cur) {
+          if (cur && cur.data && cur.data.requested_at === asked) {
+            syncState('Synced at ' + new Date(cur.data.finished_at).toLocaleTimeString() + '.');
+            syncDone(); return refresh();
+          }
+          setTimeout(poll, SYNC_POLL_MS);
+        }).catch(function () { setTimeout(poll, SYNC_POLL_MS); });
+      })();
+    }).catch(function (err) { syncState('Could not send the request: ' + err.message, true); syncDone(); });
+  }
+
   // ---- wiring --------------------------------------------------------------
   function schedule() {
     if (state.timer) clearInterval(state.timer);
@@ -310,6 +349,7 @@
   }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   $('refreshBtn').addEventListener('click', refresh);
+  $('syncBtn').addEventListener('click', syncNow);
   $('viewBtn').addEventListener('click', function () { state.view = state.view === 'active' ? 'archive' : 'active'; render(); });
   $('settingsBtn').addEventListener('click', function () { showSettings($('settings').hidden); });
   $('forgetBtn').addEventListener('click', forgetSettings);

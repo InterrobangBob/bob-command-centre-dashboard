@@ -13,6 +13,7 @@
   <h1>Command Centre</h1>
   <div class="top-controls">
     <span id="refreshed" class="muted" aria-live="polite">not loaded</span>
+    <button id="syncBtn" type="button" title="Ask Claude in the cloud to refresh the cloud sessions now">Sync now</button>
     <button id="refreshBtn" type="button" title="Refresh now">Refresh</button>
     <button id="viewBtn" type="button" title="Switch between active and archived jobs">Archive</button>
     <button id="settingsBtn" type="button" title="Token and repository settings">Settings</button>
@@ -20,6 +21,7 @@
 </header>
 
 <div id="banner" class="banner" hidden></div>
+<p id="syncState" class="muted sync-state" aria-live="polite" hidden></p>
 
 <section id="settings" class="panel" hidden>
   <h2>Settings</h2>
