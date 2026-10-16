@@ -326,6 +326,7 @@
     renderBulk();
   }
 
+  var STALE_MS = (typeof window !== 'undefined' && window.CC_STALE_MS) || 25 * 60 * 1000;
   function renderWaiting() {
     var box = $('waitingList'); box.innerHTML = '';
     var tpl = $('tileTpl');
@@ -336,6 +337,16 @@
       if (!waitingJobs.some(function (j) { return j.id === a.job_id; })) {
         var j = state.jobs.filter(function (x) { return x.id === a.job_id; })[0];
         waitingJobs.push(j || { id: a.job_id, title: a.summary, machine: a.machine, needs_from_bob: 'Approve or deny: ' + a.summary, self_serve_attempted: [], updated: a.created, owner_session: a.cwd });
+      }
+    });
+    // A job marked running that has gone quiet is the one a permission prompt inside an app looks like from here.
+    state.jobs.forEach(function (j) {
+      var idle = Date.now() - (Date.parse(j.updated) || 0);
+      if (j.status === 'running' && idle > STALE_MS && !waitingJobs.some(function (w) { return w.id === j.id; })) {
+        var copy = {}; Object.keys(j).forEach(function (k) { copy[k] = j[k]; });
+        copy.needs_from_bob = 'No update for ' + Math.round(idle / 60000) + ' minutes. It may be stuck on an approval prompt or a question. Open it and check.';
+        copy.self_serve_attempted = ['Marked running but silent, so no question was recorded.'];
+        waitingJobs.push(copy);
       }
     });
     waitingJobs.sort(function (a, b) { return (Date.parse(b.updated) || 0) - (Date.parse(a.updated) || 0); });
