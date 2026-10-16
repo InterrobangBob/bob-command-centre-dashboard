@@ -388,7 +388,7 @@
       });
     }).then(function () {
       var start = Date.now();
-      syncState('Requested. Claude picks it up within about 5 minutes. You can leave this page open.');
+      syncState('Requested. Nothing answers this automatically. Tell Claude in the Command Centre session that you clicked it.');
       (function poll() {
         if (Date.now() - start > SYNC_GIVE_UP_MS) {
           syncState('No answer after ' + Math.round(SYNC_GIVE_UP_MS / 60000) + ' minutes. The Claude session that does the sync may not be running.', true);
